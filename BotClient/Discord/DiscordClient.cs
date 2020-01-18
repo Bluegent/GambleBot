@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Text;
 using System.Threading.Tasks;
+using BotClient.Game;
 
 namespace BotClient.Discord
 {
@@ -8,7 +10,7 @@ namespace BotClient.Discord
 
     using Newtonsoft.Json;
 
-    public class DiscordClient
+    public class DiscordClient : ILogger
     {
 
         public DiscordSocketClient Client { get; private set; }
@@ -21,6 +23,10 @@ namespace BotClient.Discord
 
         public SocketGuild Server { get; private set; }
         public SocketTextChannel Channel { get; private set; }
+        private Random _gen;
+
+
+        private GameController _game;
 
 
         public async void Init()
@@ -32,6 +38,9 @@ namespace BotClient.Discord
             Client.MessageReceived += MessageReceived;
             Client.Ready += ClientReady;
             IsReady = false;
+            _gen = new Random();
+            buffer = new StringBuilder();
+            _game = new GameController(this,_gen);
 
             await Client.LoginAsync(TokenType.Bot, _discordConfig.Token);
             await Client.StartAsync();
@@ -65,7 +74,9 @@ namespace BotClient.Discord
                 Channel = GetChannel();
             }
             IsReady = true;
-            //WriteMessage($"The ***Soul Master*** awakens...");
+            WriteMessage($"Type `{Const.Comm.HELP}` for some info. Let the games begin...");
+            Flush();
+            
             ReadyAction?.Invoke();
 
             return Task.CompletedTask;
@@ -73,10 +84,11 @@ namespace BotClient.Discord
 
         private async Task<Task> MessageReceived(SocketMessage message)
         {
-            if (message.Content.Equals("ping") && !message.Channel.Equals(Channel))
+            if (message.Channel.Equals(Channel))
             {
-                await message.Author.SendMessageAsync("pong");
+                _game.HandleMessage(message);
             }
+            
             return Task.CompletedTask;
         }
 
@@ -89,9 +101,33 @@ namespace BotClient.Discord
 
         public void WriteMessage(string msg)
         {
+            buffer.Append(msg);
+            buffer.Append("\n");
+        }
+
+        public async void Flush()
+        {
+            string res = buffer.ToString();
+            buffer.Clear();
             if (IsReady)
-                if (!string.IsNullOrEmpty(msg))
-                    Channel.SendMessageAsync(msg);
+                if (!string.IsNullOrEmpty(res))
+                {
+                    await Channel.SendMessageAsync(res);
+                }
+        }
+
+        public void LogF(string message)
+        {
+            Log(message);
+            Flush();
+            
+        }
+
+        private StringBuilder buffer;
+
+        public void Log(string message)
+        {
+            WriteMessage(message);
         }
     }
 }

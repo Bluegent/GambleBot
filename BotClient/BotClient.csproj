@@ -127,9 +127,16 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Discord\Const.cs" />
     <Compile Include="Discord\DiscordClient.cs" />
     <Compile Include="Discord\DiscordConfig.cs" />
+    <Compile Include="Game\Command.cs" />
+    <Compile Include="Game\Database.cs" />
     <Compile Include="Game\GambleGame.cs" />
+    <Compile Include="Game\GameConfig.cs" />
+    <Compile Include="Game\GameController.cs" />
+    <Compile Include="Game\Player.cs" />
+    <Compile Include="Game\Serialize\Serializer.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utils\Utils.cs" />
