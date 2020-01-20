@@ -13,6 +13,8 @@
             Debug, // add a debug player
             Help //prints all commands and how to use them
             , Me //gives you your stats
+            , Register // make an account
+            , BotStats // see the bot's stats
         }
         public string Text;
         public string Help;

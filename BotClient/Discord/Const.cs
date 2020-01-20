@@ -22,6 +22,11 @@
             public static readonly string HELP_HELP = $"`{HELP}` - prints this message";
             public const string ME = "me";
             public static readonly string ME_HELP = $"`{ME}` - prints your current stats";
+            public const string REGISTER = "register";
+            public static readonly string REGISTER_HELP = $"`{REGISTER}` - register for an account if you don't have one";
+
+            public const string BOT_STATS = "bot";
+            public static readonly string BOT_STATS_HELP = $"`{BOT_STATS}` - see Gambler Bot's stats";
         }
 
         public class Files
@@ -30,7 +35,7 @@
         }
         public class Emoji
         {
-            public const string CURRENCY = "<:g_icon_own:667845967869116421>";
+            public const string CURRENCY = "<:coin:668837214456643642>";
             public const string YAMERO = "<:yamero:601292524702662666>";
             public const string SAD = "<:sad:601292295026769931>";
             public const string WOKE = "<:woke:603122406927761408>";

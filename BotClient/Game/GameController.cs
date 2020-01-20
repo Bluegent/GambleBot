@@ -8,6 +8,8 @@ using Discord.WebSocket;
 
 namespace BotClient.Game
 {
+    using System.Runtime.Serialization;
+
     public class GameController
     {
 
@@ -17,7 +19,7 @@ namespace BotClient.Game
             JoinPhase,
             OngoingPhase
         }
-        public Database _db { get; private set; }
+        public Database Db { get; private set; }
         private GambleGame _game;
         private ILogger _log;
         private GameConfig _gcfg;
@@ -31,6 +33,13 @@ namespace BotClient.Game
             _fakePlayer = false;
             _game = new GambleGame(_gcfg, _gen, _log);
             State = GameState.None;
+        }
+
+
+        public void AllocateSalary()
+        {
+            Db.AllocateSalary(_gcfg.StartMoney);
+            _log.LogF("Everyone has been allocated their _deserved_ wages.");
         }
 
         public void StartGame(SocketUser user)
@@ -74,15 +83,16 @@ namespace BotClient.Game
             _log.LogF("A fake player has been added.");
             _fakePlayer = true;
             Player fake;
-            if (_db.HasPlayer(0))
+            if (Db.HasPlayer(0))
             {
-                fake = _db.GetPlayer(0);
+                fake = Db.GetPlayer(0);
             }
             else
             {
                 fake = new Player(0, "GambleBot");
-                _db.AddPlayer(fake);
+                Db.AddPlayer(fake);
             }
+            fake.GiveMinimumMoney(_gcfg.StartMoney);
             _game.AddPlayer(fake);
         }
         public void JoinGame(SocketUser user)
@@ -94,17 +104,19 @@ namespace BotClient.Game
             }
 
             Player player;
-            if (_db.HasPlayer(user.Id))
+            if (!Db.HasPlayer(user.Id))
             {
-                player = _db.GetPlayer(user.Id);
+                Register(user);
+                
             }
-            else
+            player = Db.GetPlayer(user.Id);
+
+            if (!player.CanJoin(_gcfg.StartMoney))
             {
-                player = new Player(user.Id, user.Username);
-                _db.AddPlayer(player);
+                _log.LogF($"{player.Name} is too poor to join, laugh at him! {Const.Emoji.KAPPA}");
+                return;
             }
-            _log.Log($"{player.Name} has joined the lobby.");
-            _log.Flush();
+            _log.LogF($"{player.Name} has joined the lobby.");
             _game.AddPlayer(player);
         }
 
@@ -131,11 +143,13 @@ namespace BotClient.Game
             _log = log;
             _gen = gen;
             _gcfg = new GameConfig();
-            _gcfg.BetStartMoney = 100;
-            _gcfg.StartMoney = 500;
+            _gcfg.BetStartMoney = 10;
+            _gcfg.StartMoney = 50;
             _gcfg.StartRoll = 1000;
-            _db = new Database();
-            _db.Load(Const.Files.DB);
+            _gcfg.LootBoxMin = 10;
+            _gcfg.LootBoxMax = 50;
+            Db = new Database();
+            Db.Load(Const.Files.DB);
             State = GameState.None;
 
             Reset();
@@ -152,13 +166,15 @@ namespace BotClient.Game
             AddCommand(Command.CommType.Fold, Const.Comm.SKIP, Const.Comm.SKIP_HELP);
             AddCommand(Command.CommType.Help, Const.Comm.HELP, Const.Comm.HELP_HELP);
             AddCommand(Command.CommType.Me, Const.Comm.ME, Const.Comm.ME_HELP);
+            AddCommand(Command.CommType.Register, Const.Comm.REGISTER, Const.Comm.REGISTER_HELP);
+            AddCommand(Command.CommType.BotStats, Const.Comm.BOT_STATS, Const.Comm.BOT_STATS_HELP);
             GetHelpMessage();
         }
 
         private void GetHelpMessage()
         {
             StringBuilder help = new StringBuilder();
-            help.Append($"``` Hello. I'm GableBot and I run a high stake gambling operation. The currently available game is Death Roll. Everyone is issued {_gcfg.StartMoney} tokens. A random player is chosen to roll a number between 1 and {_gcfg.StartRoll}. The next player will then roll between 1 and the previous number, and so on until a player rolls a 1, losing. The amount of money they bet is then equally distributed between the remaining players and the next round starts. Running out of money removes a player from the game. The winner gets their final money added to their global score. To interact with me use the following commands: \n");
+            help.Append($"``` Hello. I'm GableBot and I run a high stake gambling operation. The currently available game is Death Roll. If your vault has enough cash({_gcfg.StartMoney}), you can join. Everyone is issued {_gcfg.StartMoney} tokens. A random player is chosen to roll a number between 1 and {_gcfg.StartRoll}. The next player will then roll between 1 and the previous number, and so on until a player rolls a 1, losing. The amount of money they bet is then equally distributed between the remaining players and the next round starts. Running out of money removes a player from the game. The winner gets their final money added to their score and vault. Don't worry, if you're broke, every 30 minutes everyone is allocated enough tokens to play once. To interact with me use the following commands: \n");
             foreach (Command command in _commands.Values)
             {
                 help.Append(command.Help);
@@ -168,6 +184,38 @@ namespace BotClient.Game
             HelpMessage = help.ToString();
 
         }
+
+        public bool Register(SocketUser user)
+        {
+            if (Db.HasPlayer(user.Id))
+            {
+                return false;
+            }
+            else
+            {
+                Player player = new Player(user.Id, user.Username);
+                player.GiveMinimumMoney(_gcfg.StartMoney);
+                Db.AddPlayer(player);
+                return true;
+            }
+        }
+
+        public bool IsWrongUser(ulong id)
+        {
+            if (State != GameState.OngoingPhase)
+            {
+                _log.LogF("Cool your jets, kid, there's no game in progress.");
+                return true;
+            }
+            else if (id != _game.GetCurrentPlayer().Id)
+            {
+                _log.LogF("It's not your turn, punk.");
+                return true;
+            }
+
+            return false;
+        }
+
         public void HandleMessage(SocketMessage msg)
         {
             string[] msgBits = msg.Content.Trim().Split(' ');
@@ -180,25 +228,21 @@ namespace BotClient.Game
             switch (cmd.Type)
             {
                 case Command.CommType.Roll:
-                    if (msg.Author.Id != _game.GetCurrentPlayer().Id)
-                    {
-                        _log.LogF("Not your turn, punk...");
+                    if(IsWrongUser(msg.Author.Id)){ 
                         return;
                     }
                     DoMove(GambleGame.Move.Roll);
                     break;
                 case Command.CommType.Raise:
-                    if (msg.Author.Id != _game.GetCurrentPlayer().Id)
+                    if (IsWrongUser(msg.Author.Id))
                     {
-                        _log.LogF("Not your turn, punk...");
                         return;
                     }
                     DoMove(GambleGame.Move.Raise);
                     break;
                 case Command.CommType.Fold:
-                    if (msg.Author.Id != _game.GetCurrentPlayer().Id)
+                    if (IsWrongUser(msg.Author.Id))
                     {
-                        _log.LogF("Not your turn, punk...");
                         return;
                     }
                     DoMove(GambleGame.Move.Skip);
@@ -218,22 +262,35 @@ namespace BotClient.Game
                 case Command.CommType.Help:
                     msg.Author.SendMessageAsync(HelpMessage);
                     break;
+                case Command.CommType.Register:
+                    if (Db.HasPlayer(msg.Author.Id))
+                    {
+                        _log.LogF($"I already know you: {Db.GetPlayer(msg.Author.Id).Full()}");
+                    }
+                    else
+                    {
+                        Register(msg.Author);
+                    }
+                    break;
                 case Command.CommType.Me:
                 {
-                    if (!_db.HasPlayer(msg.Author.Id))
+                    if (!Db.HasPlayer(msg.Author.Id))
                     {
                         _log.LogF("Player doesn't exist in database, start playing to register.");
                         break;
                     }
 
-                    _log.LogF(_db.GetPlayer(msg.Author.Id).Full());
+                    _log.LogF(Db.GetPlayer(msg.Author.Id).Full());
                     break;
                 }
+                case Command.CommType.BotStats:
+                    _log.LogF(Db.GetPlayer(0).Full());
+                    break;
             }
             _log.Flush();
             if (State == GameState.OngoingPhase && _game.Finished)
             {
-                _db.Save(Const.Files.DB);
+                Db.Save(Const.Files.DB);
                 Reset();
             }
 

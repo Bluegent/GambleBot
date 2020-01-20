@@ -8,5 +8,9 @@
 
         public int StartRoll;
 
+        public int LootBoxMin;
+
+        public int LootBoxMax;
+
     }
 }

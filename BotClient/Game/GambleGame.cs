@@ -36,6 +36,7 @@ namespace BotClient.Game
 
         public bool Finished { get; private set; }
 
+
         public GambleGame(GameConfig cfg, Random gen, ILogger log)
         {
             this._log = log;
@@ -49,7 +50,9 @@ namespace BotClient.Game
         }
         public Player GetCurrentPlayer()
         {
-            return players[_currentPlayer];
+            if(players.Count  > _currentPlayer)
+                return players[_currentPlayer];
+            return new Player();
         }
 
         public void SetUpRound()
@@ -59,7 +62,7 @@ namespace BotClient.Game
             CurrentRoundBetMoney = gcfg.BetStartMoney;
             _currentPlayer = _generator.Next(players.Count);
             _currentRoll = gcfg.StartRoll;
-            _log.Log($"A new round has started! Current bet is {CurrentRoundBetMoney} {Const.Emoji.CURRENCY}.");
+            _log.Log($"A new round has started! Current bet is {CurrentRoundBetMoney} {Const.Emoji.CURRENCY}. {players[_currentPlayer].Tag()}, roll!");
             FakePlayerMove();
         }
 
@@ -93,7 +96,7 @@ namespace BotClient.Game
         {
             int roll = players[_currentPlayer].Roll(_currentRoll, _generator);
             //TODO: log that a roll has been performed
-            _log.Log($"{players[_currentPlayer]} rolled **{roll}** !");
+            _log.Log($"{players[_currentPlayer]} rolled >>>**{roll}**<<< !");
             _currentRoll = roll;
 
         }
@@ -133,6 +136,13 @@ namespace BotClient.Game
             players[0].Win();
             //TODO: Log that player has won
             _log.Log($"{players[0].Name} has won! Global score: {players[0].GlobalScore} {Const.Emoji.CURRENCY}. {Const.Emoji.WOKE}");
+            long win = _generator.Next(3);
+            if (win == 0)
+            {
+                long sum = gcfg.LootBoxMin +_generator.Next( gcfg.LootBoxMax - gcfg.LootBoxMin + 1);
+                _log.Log($"{players[0].Name} has found a lucky chip worth {sum} {Const.Emoji.CURRENCY}!");
+                players[0].Lootbox(sum);
+            }
         }
 
         public void ResetPlayerIndex(int mod = 0)
@@ -160,6 +170,7 @@ namespace BotClient.Game
                 //TODO: log that a player has been removed
                 _log.Log($"{player.Name} is broke so they have been removed from the game. {Const.Emoji.SAD}");
                 players.Remove(player);
+                player.Lost();
             }
 
             if (players.Count == 1)
@@ -177,7 +188,6 @@ namespace BotClient.Game
         {
             if (players[_currentPlayer].Id != 0)
                 return;
-
             if (players[_currentPlayer].CurrentMoney >= gcfg.StartMoney * 0.6 && _generator.Next(100) < 10 &&
                 _currentRoll > 10)
             {
@@ -187,7 +197,6 @@ namespace BotClient.Game
             {
                 NextMove(Move.Roll);
             }
-
         }
 
         public long Cashout()
@@ -221,11 +230,12 @@ namespace BotClient.Game
                 default:
                     throw new ArgumentOutOfRangeException(nameof(move), move, null);
             }
-            CheckEnd();
+            if(CheckEnd())
+                return;
             if (Finished)
                 return;
             ResetPlayerIndex(1);
-            _log.Log($"{players[_currentPlayer].Tag()} is next to move, cashout is {Cashout()} ...");
+            _log.Log($"{players[_currentPlayer].Tag()} is next to move, cashout is {Cashout()}.");
             FakePlayerMove();
 
         }
@@ -234,7 +244,7 @@ namespace BotClient.Game
         {
             foreach (Player player in players)
             {
-                player.Reset(gcfg.StartMoney);
+                player.StartMatch(gcfg.StartMoney);
             }
             _log.Log($"Game has started. Players: {GetPlayerList()}.");
             SetUpRound();

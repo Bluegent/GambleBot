@@ -1,11 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.IO;
-using System.Runtime.Serialization;
-using BotClient.Game.Serialize;
 using Newtonsoft.Json;
 
 namespace BotClient.Game
 {
+    using System.Linq;
+
+    using BotClient.Discord;
+
     public class Database
     {
         private Dictionary<ulong, Player> _db;
@@ -18,23 +20,27 @@ namespace BotClient.Game
             {
                 return;
             }
-            SerializablePlayer[] splayers = JsonConvert.DeserializeObject<SerializablePlayer[]>(Utils.FileHandler.Read(path));
-            foreach (SerializablePlayer player in splayers)
+            Player[] players = JsonConvert.DeserializeObject<Player[]>(Utils.FileHandler.Read(path));
+            foreach (Player player in players)
             {
-                AddPlayer(player.Convert());
+                AddPlayer(player);
             }
+        }
+
+        public void AllocateSalary(long sum)
+        {
+            foreach (Player player in _db.Values)
+            {
+                player.GiveMinimumMoney(sum);
+            }
+            Save(Const.Files.DB);
         }
 
         public void Save(string path)
         {
             if (_db.Count == 0)
                 return;
-            List<SerializablePlayer> toSave = new List<SerializablePlayer>();
-            foreach (Player player in _db.Values)
-            {
-                toSave.Add(player.Convert());
-            }
-            File.WriteAllText(path, Serialize.Serialize.ToJson(toSave.ToArray()));
+            File.WriteAllText(path, Serialize.Serializer.ToJson(_db.Values.ToArray()));
 
         }
         public Database()

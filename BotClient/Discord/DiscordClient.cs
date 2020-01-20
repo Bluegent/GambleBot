@@ -5,6 +5,8 @@ using BotClient.Game;
 
 namespace BotClient.Discord
 {
+    using System.Threading;
+
     using global::Discord;
     using global::Discord.WebSocket;
 
@@ -15,6 +17,8 @@ namespace BotClient.Discord
 
         public DiscordSocketClient Client { get; private set; }
         public Action ReadyAction { get; set; }
+
+        private Thread _salary;
 
         public bool IsReady { get; private set; }
 
@@ -39,7 +43,7 @@ namespace BotClient.Discord
             Client.Ready += ClientReady;
             IsReady = false;
             _gen = new Random();
-            buffer = new StringBuilder();
+            _buffer = new StringBuilder();
             _game = new GameController(this,_gen);
 
             await Client.LoginAsync(TokenType.Bot, _discordConfig.Token);
@@ -75,6 +79,36 @@ namespace BotClient.Discord
             }
             IsReady = true;
             WriteMessage($"Type `{Const.Comm.HELP}` for some info. Let the games begin...");
+
+
+            _salary = new Thread(
+                () =>
+                    {
+                        bool allocated = false;
+                        while (true)
+                        {
+                            if (DateTime.Now.TimeOfDay.Minutes == 0 || DateTime.Now.TimeOfDay.Minutes == 30)
+                            {
+                                if (!allocated)
+                                {
+                                    _game.AllocateSalary();
+                                    allocated = true;
+                                }
+                            }
+                            else
+                            {
+                                if (allocated)
+                                {
+                                    allocated = false;
+                                }
+                            }
+
+                            Thread.Sleep(15000);
+                        }
+                    }
+                );
+
+            _salary.Start();
             Flush();
             
             ReadyAction?.Invoke();
@@ -101,14 +135,14 @@ namespace BotClient.Discord
 
         public void WriteMessage(string msg)
         {
-            buffer.Append(msg);
-            buffer.Append("\n");
+            _buffer.Append(msg);
+            _buffer.Append("\n");
         }
 
         public async void Flush()
         {
-            string res = buffer.ToString();
-            buffer.Clear();
+            string res = _buffer.ToString();
+            _buffer.Clear();
             if (IsReady)
                 if (!string.IsNullOrEmpty(res))
                 {
@@ -123,7 +157,7 @@ namespace BotClient.Discord
             
         }
 
-        private StringBuilder buffer;
+        private StringBuilder _buffer;
 
         public void Log(string message)
         {
