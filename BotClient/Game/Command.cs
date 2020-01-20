@@ -15,6 +15,8 @@
             , Me //gives you your stats
             , Register // make an account
             , BotStats // see the bot's stats
+            , Backup // 
+            , Restore //
         }
         public string Text;
         public string Help;

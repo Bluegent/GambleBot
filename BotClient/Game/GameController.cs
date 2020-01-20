@@ -76,6 +76,16 @@ namespace BotClient.Game
 
         }
 
+        public void Backup(ISocketMessageChannel channel)
+        {
+            channel.SendMessageAsync(Db.SaveToCompressed());
+        }
+
+        public bool Restore(string compressed)
+        {
+            return Db.LoadFromCompressed(compressed);
+        }
+
         public void AddFakePlayer()
         {
             if (_fakePlayer)

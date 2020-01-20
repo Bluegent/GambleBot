@@ -44,7 +44,7 @@ namespace BotClient.Discord
             IsReady = false;
             _gen = new Random();
             _buffer = new StringBuilder();
-            _game = new GameController(this,_gen);
+            _game = new GameController(this, _gen);
 
             await Client.LoginAsync(TokenType.Bot, _discordConfig.Token);
             await Client.StartAsync();
@@ -110,7 +110,7 @@ namespace BotClient.Discord
 
             _salary.Start();
             Flush();
-            
+
             ReadyAction?.Invoke();
 
             return Task.CompletedTask;
@@ -118,11 +118,37 @@ namespace BotClient.Discord
 
         private async Task<Task> MessageReceived(SocketMessage message)
         {
-            if (message.Channel.Equals(Channel))
+            if (message.Channel.Name == "@Bluegent#3495" && message.Author.Id == 446704905944694784)
+            {
+                string[] bits = message.Content.Trim().Split(' ');
+                if (bits[0] == "backup")
+                {
+                    _game.Backup(message.Channel);
+                }
+                else if (bits[0] == "restore")
+                {
+                    string compressed = message.Content.Substring(8);
+                    if (compressed.Length == 0)
+                    {
+                        await message.Channel.SendMessageAsync("Incorrect restore string.");
+                    }
+                    else if (!_game.Restore(compressed))
+                    {
+                        await message.Channel.SendMessageAsync(
+                            "Something went wrong when decompressing or deserializing.");
+                    }
+                    else
+                    {
+                        await message.Channel.SendMessageAsync("Backup restored succesfully and saved locally.");
+                    }
+                }
+            }
+
+            else if (message.Channel.Equals(Channel))
             {
                 _game.HandleMessage(message);
             }
-            
+
             return Task.CompletedTask;
         }
 
@@ -154,7 +180,7 @@ namespace BotClient.Discord
         {
             Log(message);
             Flush();
-            
+
         }
 
         private StringBuilder _buffer;

@@ -4,14 +4,49 @@ using Newtonsoft.Json;
 
 namespace BotClient.Game
 {
+    using System;
     using System.Linq;
 
     using BotClient.Discord;
+
+    using global::Serialize;
 
     public class Database
     {
         private Dictionary<ulong, Player> _db;
 
+
+
+        public bool LoadFromCompressed(string compressed)
+        {
+            try
+            {
+                Player[] players = JsonConvert.DeserializeObject<Player[]>(Compressor.DecompressString(compressed));
+                if (players.Length == 0)
+                {
+                    return false;
+                }
+                _db = new Dictionary<ulong, Player>();
+                foreach (Player player in players)
+                {
+                    AddPlayer(player);
+                }
+                Save(Const.Files.DB);
+                return true;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Exception when deserializing: "+e.Message);
+                return false;
+            }
+        }
+
+        public string SaveToCompressed()
+        {
+            if (_db.Count == 0)
+                return "";
+            return Compressor.CompressString(Serialize.Serializer.ToJson(_db.Values.ToArray()));
+        }
 
         public void Load(string path)
         {
@@ -50,9 +85,9 @@ namespace BotClient.Game
 
         public void AddPlayer(Player player)
         {
-            if(_db.ContainsKey(player.Id)) 
+            if (_db.ContainsKey(player.Id))
                 return;
-            _db.Add(player.Id,player);           
+            _db.Add(player.Id, player);
         }
 
         public bool HasPlayer(ulong id)

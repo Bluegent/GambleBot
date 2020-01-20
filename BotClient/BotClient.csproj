@@ -136,6 +136,7 @@
     <Compile Include="Game\GameConfig.cs" />
     <Compile Include="Game\GameController.cs" />
     <Compile Include="Game\Player.cs" />
+    <Compile Include="Game\Serialize\Compressor.cs" />
     <Compile Include="Game\Serialize\Serializer.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
