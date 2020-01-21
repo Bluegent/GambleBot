@@ -60,7 +60,23 @@ namespace BotClient.Game
 
         private static Mutex _moneyMutex = new Mutex();
 
+        public void GiveMoney(long money)
+        {
+            lock (_moneyMutex)
+            {
+                _globalMoney += money;
+            }
+        }
 
+        public bool HasMoney(long money)
+        {
+            bool has = false;
+            lock (_moneyMutex)
+            {
+                has = _globalMoney >= money;
+            }
+            return has;
+        }
         public void GiveMinimumMoney(long min)
         {
             lock (_moneyMutex)

@@ -27,6 +27,9 @@
 
             public const string BOT_STATS = "bot";
             public static readonly string BOT_STATS_HELP = $"`{BOT_STATS}` - see Gambler Bot's stats";
+
+            public const string SLOTS = "slots";
+            public static readonly string SLOTS_HELP = $"`{SLOTS} <amount>` - spin the slot machine, betting <amount> chips";
         }
 
         public class Files

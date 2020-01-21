@@ -8,7 +8,6 @@ using Discord.WebSocket;
 
 namespace BotClient.Game
 {
-    using System.Runtime.Serialization;
 
     public class GameController
     {
@@ -28,6 +27,8 @@ namespace BotClient.Game
         private bool _fakePlayer;
         private Dictionary<string, Command> _commands;
         public string HelpMessage;
+
+        private SlotMachine _machine;
         public void Reset()
         {
             _fakePlayer = false;
@@ -161,7 +162,7 @@ namespace BotClient.Game
             Db = new Database();
             Db.Load(Const.Files.DB);
             State = GameState.None;
-
+            _machine = new SlotMachine(_gen);
             Reset();
 
 
@@ -178,6 +179,7 @@ namespace BotClient.Game
             AddCommand(Command.CommType.Me, Const.Comm.ME, Const.Comm.ME_HELP);
             AddCommand(Command.CommType.Register, Const.Comm.REGISTER, Const.Comm.REGISTER_HELP);
             AddCommand(Command.CommType.BotStats, Const.Comm.BOT_STATS, Const.Comm.BOT_STATS_HELP);
+            AddCommand(Command.CommType.Slots, Const.Comm.SLOTS, Const.Comm.SLOTS_HELP);
             GetHelpMessage();
         }
 
@@ -226,6 +228,53 @@ namespace BotClient.Game
             return false;
         }
 
+
+        public void SpinSlots(SocketMessage msg)
+        {
+            if (!Db.HasPlayer(msg.Author.Id))
+            {
+                _log.LogF("Huh? Maybe you forgot to `register`?");
+                return;
+            }
+            //get amount from message
+            string[] bits = msg.Content.Trim().Split(' ');
+            if (bits.Length > 2)
+            {
+                _log.LogF("Huh? Forgot how much you wanna bet, kid?");
+                return;
+            }
+            long bet = 0;
+            if (bits.Length == 1)
+            {
+                bet = 5;
+            }
+            else if (!long.TryParse(bits[1],out bet))
+            {
+                _log.LogF("I don't speak that language.");
+                return;
+            }
+
+            if (bet > _gcfg.StartMoney)
+                bet = _gcfg.StartMoney;
+ 
+
+            Player player = Db.GetPlayer(msg.Author.Id);
+            if (!player.HasMoney(bet))
+            {
+                _log.LogF("Maybe next time try betting when you actually have enough money.");
+                return;
+            }
+            player.GiveMoney(-1*bet);
+            //spin the slot thing
+            _machine.Spin((int)bet);
+            long win = _machine.LastWin;
+            _log.Log(_machine.LastCombination);
+            player.GiveMoney(win);
+            _log.Log($"{player.Tag()}[{player.GlobalMoneyRead} {Const.Emoji.CURRENCY}] bet {bet} and has won {win} {Const.Emoji.CURRENCY}. {(win==0?Const.Emoji.SAD:"")}");
+            _log.Flush();
+            Db.Save(Const.Files.DB);
+
+        }
         public void HandleMessage(SocketMessage msg)
         {
             string[] msgBits = msg.Content.Trim().Split(' ');
@@ -295,6 +344,9 @@ namespace BotClient.Game
                 }
                 case Command.CommType.BotStats:
                     _log.LogF(Db.GetPlayer(0).Full());
+                    break;
+                case Command.CommType.Slots:
+                    SpinSlots(msg);
                     break;
             }
             _log.Flush();

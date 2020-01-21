@@ -176,7 +176,7 @@ namespace BotClient.Discord
                 }
         }
 
-        public void LogF(string message)
+        public async void LogF(string message)
         {
             Log(message);
             Flush();

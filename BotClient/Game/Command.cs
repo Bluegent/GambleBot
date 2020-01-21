@@ -17,6 +17,7 @@
             , BotStats // see the bot's stats
             , Backup // 
             , Restore //
+            , Slots // spin the slots
         }
         public string Text;
         public string Help;
